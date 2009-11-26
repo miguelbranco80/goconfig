@@ -39,6 +39,9 @@
 //	[section]
 //	option=value
 //
+// Note that sections and options are case-insensitive (values are case-sensitive)
+// and are converted to lowercase when saved to a file.
+//
 // The functionality and workflow is loosely based on the configparser.py package
 // of the Python Standard Library.
 package configfile
