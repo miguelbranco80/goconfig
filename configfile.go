@@ -59,7 +59,7 @@ import (
 // ConfigFile is the representation of configuration settings.
 // The public interface is entirely through methods.
 type ConfigFile struct {
-	data	map[string]map[string]string;	// Maps sections to options to values.
+	data map[string]map[string]string;	// Maps sections to options to values.
 }
 
 
@@ -68,8 +68,8 @@ var (
 	DepthValues	= 200;		// Maximum allowed depth when recursively substituing variable names.
 
 	// Strings accepted as bool.
-	TrueBool = []string{"t", "true", "y", "yes", "on", "1"};
-	FalseBool = []string{"f", "false", "n", "no", "off", "0"};
+	TrueBool	= []string{"t", "true", "y", "yes", "on", "1"};
+	FalseBool	= []string{"f", "false", "n", "no", "off", "0"};
 
 	varRegExp	= regexp.MustCompile(`%\(([a-zA-Z0-9_.\-]+)\)s`);
 )
@@ -92,7 +92,7 @@ func (c *ConfigFile) AddSection(section string) bool {
 func (c *ConfigFile) RemoveSection(section string) bool {
 	section = strings.ToLower(section);
 	if section == DefaultSection {
-		return false; // default section cannot be removed
+		return false	// default section cannot be removed
 	}
 	// TODO: Not implemented because the following does not seem to work:
 	// c.data[section] = nil, false;
@@ -121,7 +121,7 @@ func (c *ConfigFile) RemoveOption(section string, option string) bool {
 	section = strings.ToLower(section);
 	option = strings.ToLower(option);
 	if _, ok := c.data[section]; !ok {
-		return false;
+		return false
 	}
 	_, ok := c.data[section][option];
 	c.data[section][option] = "", false;
@@ -135,7 +135,7 @@ func (c *ConfigFile) RemoveOption(section string, option string) bool {
 func NewConfigFile() *ConfigFile {
 	c := new(ConfigFile);
 	c.data = make(map[string]map[string]string);
-	c.AddSection(DefaultSection); // default section always exists
+	c.AddSection(DefaultSection);	// default section always exists
 	return c;
 }
 
@@ -152,21 +152,21 @@ func stripComments(l string) string {
 
 
 func firstIndex(s string, delim []byte) int {
-        for i := 0; i < len(s); i++ {
+	for i := 0; i < len(s); i++ {
 		for j := 0; j < len(delim); j++ {
 			if s[i] == delim[j] {
-				return i;
+				return i
 			}
 		}
 	}
 	return -1;
-} 
+}
 
 
 func (c *ConfigFile) read(buf *bufio.Reader) (err os.Error) {
 	var section, option string;
 	for {
-		l, err := buf.ReadString('\n'); // parse line-by-line
+		l, err := buf.ReadString('\n');	// parse line-by-line
 		if err == os.EOF {
 			break
 		} else if err != nil {
@@ -176,31 +176,31 @@ func (c *ConfigFile) read(buf *bufio.Reader) (err os.Error) {
 		l = strings.TrimSpace(l);
 		// switch written for readability (not performance)
 		switch {
-		case len(l) == 0: // empty line
-			continue;
-		case l[0] == '#': // comment
-			continue;
-		case l[0] == ';': // comment
-			continue;
-		case len(l) >= 3 && strings.ToLower(l[0:3]) == "rem": // comment (for windows users)
-			continue;
-		case l[0] == '[' && l[len(l)-1] == ']': // new section
-			option = ""; // reset multi-line value
-			section = strings.TrimSpace(l[1:len(l)-1]);
+		case len(l) == 0:	// empty line
+			continue
+		case l[0] == '#':	// comment
+			continue
+		case l[0] == ';':	// comment
+			continue
+		case len(l) >= 3 && strings.ToLower(l[0:3]) == "rem":	// comment (for windows users)
+			continue
+		case l[0] == '[' && l[len(l)-1] == ']':	// new section
+			option = "";	// reset multi-line value
+			section = strings.TrimSpace(l[1 : len(l)-1]);
 			c.AddSection(section);
-		case section == "": // not new section and no section defined so far
-			return os.NewError("section not found: must start with section");
-		case firstIndex(l, []byte{'=', ':'}) > 0: // option and value
+		case section == "":	// not new section and no section defined so far
+			return os.NewError("section not found: must start with section")
+		case firstIndex(l, []byte{'=', ':'}) > 0:	// option and value
 			i := firstIndex(l, []byte{'=', ':'});
 			option = strings.TrimSpace(l[0:i]);
 			value := strings.TrimSpace(stripComments(l[i+1:]));
 			c.AddOption(section, option, value);
-		case section != "" && option != "": // continuation of multi-line value
+		case section != "" && option != "":	// continuation of multi-line value
 			prev, _ := c.GetRawString(section, option);
 			value := strings.TrimSpace(stripComments(l));
 			c.AddOption(section, option, prev+"\n"+value);
 		default:
-			return os.NewError("could not parse line: "+l)
+			return os.NewError("could not parse line: " + l)
 		}
 	}
 	return nil;
@@ -234,7 +234,7 @@ func (c *ConfigFile) write(buf *bufio.Writer, header string) (err os.Error) {
 
 	for section, sectionmap := range c.data {
 		if section == DefaultSection && len(sectionmap) == 0 {
-			continue; // skip default section if empty
+			continue	// skip default section if empty
 		}
 		if err = buf.WriteString("[" + section + "]\n"); err != nil {
 			return err
@@ -364,7 +364,7 @@ func (c *ConfigFile) GetString(section string, option string) (value string, err
 		noption := value[vr[2]:vr[3]];
 		noption = strings.ToLower(noption);
 
-		nvalue, _ := c.data[DefaultSection][noption]; // search variable in default section
+		nvalue, _ := c.data[DefaultSection][noption];	// search variable in default section
 		if _, ok := c.data[section][noption]; ok {
 			nvalue = c.data[section][noption]
 		}

@@ -16,20 +16,20 @@ func testGet(t *testing.T, c *ConfigFile, section string, option string, expecte
 	case string:
 		v, _ := c.GetString(section, option);
 		if v == expected.(string) {
-			ok = true;
+			ok = true
 		}
 	case int:
-		v, _ := c.GetInt(section, option);	
+		v, _ := c.GetInt(section, option);
 		if v == expected.(int) {
-			ok = true;
+			ok = true
 		}
 	case bool:
 		v, _ := c.GetBool(section, option);
 		if v == expected.(bool) {
-			ok = true;
+			ok = true
 		}
 	default:
-		t.Fatalf("Bad test case");
+		t.Fatalf("Bad test case")
 	}
 	if !ok {
 		t.Errorf("Get failure: expected different value for %s %s", section, option)
@@ -138,7 +138,7 @@ func TestInMemory(t *testing.T) {
 func TestReadFile(t *testing.T) {
 	const tmp = "/tmp/__config_test.go__garbage";
 	defer os.Remove(tmp);
-	
+
 	file, err := os.Open(tmp, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0644);
 	if err != nil {
 		t.Fatalf("Test cannot run because cannot write temporary file: " + tmp)
@@ -169,7 +169,7 @@ func TestReadFile(t *testing.T) {
 		t.Errorf("GetSections failure: wrong number of sections")
 	}
 	opts, err := c.GetOptions("section-1");	// check number of options
-	if len(opts) != 6 {				// 4 of [section-1] plus 2 of [default]
+	if len(opts) != 6 {			// 4 of [section-1] plus 2 of [default]
 		t.Errorf("GetOptions failure: wrong number of options")
 	}
 
