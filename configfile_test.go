@@ -94,12 +94,18 @@ func TestInMemory(t *testing.T) {
 	if !c.RemoveOption("section1", "option1") {	// remove option/value
 		t.Errorf("RemoveOption failure: false on first remove")
 	}
-	if c.RemoveOption("section1", "option1") {	// remove again option/value
+	if c.RemoveOption("section1", "option1") {	// remove again
 		t.Errorf("RemoveOption failure: true on second remove")
 	}
 	_, err = c.GetString("section1", "option1");	// read it back again
 	if err == nil {
 		t.Errorf("GetString failure: got value for removed section/option")
+	}
+	if !c.RemoveSection("section1") {	// remove existing section
+		t.Errorf("RemoveSection failure: false on first remove")
+	}
+	if c.RemoveSection("section1") {	// remove again
+		t.Errorf("RemoveSection failure: true on second remove")
 	}
 
 	// test types

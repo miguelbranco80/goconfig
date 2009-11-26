@@ -44,9 +44,6 @@
 package configfile
 
 
-// BUG(msbranco): RemoveSection does not currently work.
-
-
 import (
 	"bufio";
 	"os";
@@ -115,6 +112,7 @@ func (c *ConfigFile) RemoveSection(section string) bool {
 		for o, _ := range c.data[section] {
 			c.data[section][o] = "", false
 		}
+		c.data[section] = nil, false;
 	}
 
 	return true;
