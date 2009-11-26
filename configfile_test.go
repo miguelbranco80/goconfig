@@ -1,423 +1,215 @@
-// This package implements a parser for configuration files.
-// This allows easy reading and writing of structured configuration files.
-//
-// Given a sample configuration file:
-//
-//	[default]
-//	host=www.example.com
-//	protocol=http://
-//	base-url=%(protocol)s%(host)s
-//
-//	[service-1]
-//	url=%(base-url)s/some/path
-//	delegation : on
-//	maxclients=200 # do not set this higher
-//	comments=This is a multi-line
-//		entry	; And this is a comment
-//
-// To read this configuration file, do:
-//
-//	c, err := configfile.ReadConfigFile("config.cfg");
-//	c.GetStringValue("service-1", "url"); // result is string :http://www.example.com/some/path"
-//	c.GetIntValue("service-1", "maxclients"); // result is int 200
-//	c.GetBoolValue("service-1", "delegation"); // result is bool true
-//	c.GetStringValue("service-1", "comments"); // result is string "This is a multi-line\nentry"
-//
-// Note the support for unfolding variables (such as %(base-url)s), which are read from the special
-// (reserved) section name [default].
-//
-// A new configuration file can also be created with:
-//
-//	c := configfile.NewConfigFile();
-//	c.AddSection("section");
-//	c.AddOption("section", "option", "on");
-//	c.WriteConfigFile("config.cfg", 0644, "A header for this file"); // use 0644 as file permission
-//
-// This results in the file:
-//
-//	# A header for this file
-//	[section]
-//	option=on
-//
-// The functionality and workflow is loosely based on the configparser.py package
-// of the Python Standard Library.
-package configfile
-
-
-// BUG(msbranco): RemoveSection does not currently work.
+package configfile_test
 
 
 import (
 	"bufio";
+	. "configfile";
 	"os";
-	"regexp";
-	"strconv";
 	"strings";
+	"testing";
 )
 
 
-// ConfigFile is the representation of configuration settings.
-// The public interface is entirely through methods.
-type ConfigFile struct {
-	data	map[string]map[string]string;	// Maps sections to options to values.
-}
-
-
-var (
-	DefaultSection	= "default";	// Default section name (must be lower-case).
-	DepthValues	= 200;		// Maximum allowed depth when recursively substituing variable names.
-
-	// Strings accepted as bool.
-	TrueBool = []string{"t", "true", "y", "yes", "on", "1"};
-	FalseBool = []string{"f", "false", "n", "no", "off", "0"};
-
-	varRegExp	= regexp.MustCompile(`%\(([a-zA-Z0-9_.\-]+)\)s`);
-)
-
-
-// AddSection adds a new section to the configuration.
-// It returns true if the new section was inserted, and false if the section already existed.
-func (c *ConfigFile) AddSection(section string) bool {
-	section = strings.ToLower(section);
-	if _, ok := c.data[section]; ok {
-		return false
-	}
-	c.data[section] = make(map[string]string);
-	return true;
-}
-
-
-// RemoveSection removes a section from the configuration.
-// It returns true if the section was removed, and false if section did not exist.
-func (c *ConfigFile) RemoveSection(section string) bool {
-	section = strings.ToLower(section);
-	if section == DefaultSection {
-		return false; // default section cannot be removed
-	}
-	// TODO: Not implemented because the following does not seem to work:
-	// c.data[section] = nil, false;
-	// (Also, need to remove elements from c.data[section][option] first.)
-	return false;
-}
-
-
-// AddOption adds a new option and value to the configuration.
-// It returns true if the option and value were inserted, and false if the value was overwritten.
-// If the section does not exist in advance, it is created.
-func (c *ConfigFile) AddOption(section string, option string, value string) bool {
-	c.AddSection(section);	// make sure section exists
-	section = strings.ToLower(section);
-	option = strings.ToLower(option);
-	_, ok := c.data[section][option];
-	c.data[section][option] = value;
-	return !ok;
-}
-
-
-// RemoveOption removes a option and value from the configuration.
-// It returns true if the option and value were removed, and false otherwise,
-// including if the section did not exist.
-func (c *ConfigFile) RemoveOption(section string, option string) bool {
-	section = strings.ToLower(section);
-	option = strings.ToLower(option);
-	if _, ok := c.data[section]; !ok {
-		return false;
-	}
-	_, ok := c.data[section][option];
-	c.data[section][option] = "", false;
-	return ok;
-}
-
-
-// NewConfigFile creates an empty configuration representation.
-// This representation can be filled with AddSection and AddOption and then
-// saved to a file using WriteConfigFile.
-func NewConfigFile() *ConfigFile {
-	c := new(ConfigFile);
-	c.data = make(map[string]map[string]string);
-	c.AddSection(DefaultSection); // default section always exists
-	return c;
-}
-
-
-func stripComments(l string) string {
-	// comments are preceded by space or TAB
-	for _, c := range []string{" ;", "\t;", " #", "\t#"} {
-		if i := strings.Index(l, c); i != -1 {
-			l = l[0:i]
+func testGet(t *testing.T, c *ConfigFile, section string, option string, expected interface{}) {
+	ok := false;
+	switch _ := expected.(type) {
+	case string:
+		v, _ := c.GetString(section, option);
+		if v == expected.(string) {
+			ok = true;
 		}
+	case int:
+		v, _ := c.GetInt(section, option);	
+		if v == expected.(int) {
+			ok = true;
+		}
+	case bool:
+		v, _ := c.GetBool(section, option);
+		if v == expected.(bool) {
+			ok = true;
+		}
+	default:
+		t.Fatalf("Bad test case");
 	}
-	return l;
+	if !ok {
+		t.Errorf("Get failure: expected different value for %s %s", section, option)
+	}
 }
 
 
-func firstIndex(s string, delim []byte) int {
-        for i := 0; i < len(s); i++ {
-		for j := 0; j < len(delim); j++ {
-			if s[i] == delim[j] {
-				return i;
-			}
-		}
+// Create configuration representation and run multiple tests in-memory.
+func TestInMemory(t *testing.T) {
+	c := NewConfigFile();
+
+	// test empty structure
+	if len(c.GetSections()) != 1 {	// should be empty
+		t.Errorf("GetSections failure: invalid length")
 	}
-	return -1;
-} 
-
-
-func (c *ConfigFile) read(buf *bufio.Reader) (err os.Error) {
-	var section, option string;
-	for {
-		l, err := buf.ReadString('\n'); // parse line-by-line
-		if err == os.EOF {
-			break
-		} else if err != nil {
-			return err
-		}
-
-		l = strings.TrimSpace(l);
-		// switch written for readability (not performance)
-		switch {
-		case len(l) == 0: // empty line
-			continue;
-		case l[0] == '#': // comment
-			continue;
-		case l[0] == ';': // comment
-			continue;
-		case len(l) >= 3 && strings.ToLower(l[0:3]) == "rem": // comment (for windows users)
-			continue;
-		case l[0] == '[' && l[len(l)-1] == ']': // new section
-			option = ""; // reset multi-line value
-			section = strings.TrimSpace(l[1:len(l)-1]);
-			c.AddSection(section);
-		case section == "": // not new section and no section defined so far
-			return os.NewError("section not found: must start with section");
-		case firstIndex(l, []byte{'=', ':'}) > 0: // option and value
-			i := firstIndex(l, []byte{'=', ':'});
-			option = strings.TrimSpace(l[0:i]);
-			value := strings.TrimSpace(stripComments(l[i+1:]));
-			c.AddOption(section, option, value);
-		case section != "" && option != "": // continuation of multi-line value
-			prev, _ := c.GetRawString(section, option);
-			value := strings.TrimSpace(stripComments(l));
-			c.AddOption(section, option, prev+"\n"+value);
-		default:
-			return os.NewError("could not parse line: "+l)
-		}
+	if c.HasSection("no-section") {	// test presence of missing section
+		t.Errorf("HasSection failure: invalid section")
 	}
-	return nil;
+	_, err := c.GetOptions("no-section");	// get options for missing section
+	if err == nil {
+		t.Errorf("GetOptions failure: invalid section")
+	}
+	if c.HasOption("no-section", "no-option") {	// test presence of option for missing section
+		t.Errorf("HasSection failure: invalid/section/option")
+	}
+	_, err = c.GetString("no-section", "no-option");	// get value from missing section/option
+	if err == nil {
+		t.Errorf("GetString failure: got value for missing section/option")
+	}
+	_, err = c.GetInt("no-section", "no-option");	// get value from missing section/option
+	if err == nil {
+		t.Errorf("GetInt failure: got value for missing section/option")
+	}
+	if c.RemoveSection("no-section") {	// remove missing section
+		t.Errorf("RemoveSection failure: removed missing section")
+	}
+	if c.RemoveOption("no-section", "no-option") {	// remove missing section/option
+		t.Errorf("RemoveOption failure: removed missing section/option")
+	}
+
+	// fill up structure
+	if !c.AddSection("section1") {	// add section
+		t.Errorf("AddSection failure: false on first insert")
+	}
+	if c.AddSection("section1") {	// re-add same section
+		t.Errorf("AddSection failure: true on second insert")
+	}
+	if c.AddSection(DefaultSection) {	// default section always exists
+		t.Errorf("AddSection failure: true on default section insert")
+	}
+
+	if !c.AddOption("section1", "option1", "value1") {	// add option/value
+		t.Errorf("AddOption failure: false on first insert")
+	}
+	testGet(t, c, "section1", "option1", "value1");	// read it back
+
+	if c.AddOption("section1", "option1", "value2") {	// overwrite value
+		t.Errorf("AddOption failure: true on second insert")
+	}
+	testGet(t, c, "section1", "option1", "value2");	// read it back again
+
+	if !c.RemoveOption("section1", "option1") {	// remove option/value
+		t.Errorf("RemoveOption failure: false on first remove")
+	}
+	if c.RemoveOption("section1", "option1") {	// remove again option/value
+		t.Errorf("RemoveOption failure: true on second remove")
+	}
+	_, err = c.GetString("section1", "option1");	// read it back again
+	if err == nil {
+		t.Errorf("GetString failure: got value for removed section/option")
+	}
+
+	// test types
+	if !c.AddSection("section2") {	// add section
+		t.Errorf("AddSection failure: false on first insert")
+	}
+
+	if !c.AddOption("section2", "test-number", "666") {	// add number
+		t.Errorf("AddOption failure: false on first insert")
+	}
+	testGet(t, c, "section2", "test-number", 666);	// read it back
+
+	if !c.AddOption("section2", "test-yes", "yes") {	// add 'yes' (bool)
+		t.Errorf("AddOption failure: false on first insert")
+	}
+	testGet(t, c, "section2", "test-yes", true);	// read it back
+
+	if !c.AddOption("section2", "test-false", "false") {	// add 'false' (bool)
+		t.Errorf("AddOption failure: false on first insert")
+	}
+	testGet(t, c, "section2", "test-false", false);	// read it back
+
+	// test cycle
+	c.AddOption(DefaultSection, "opt1", "%(opt2)s");
+	c.AddOption(DefaultSection, "opt2", "%(opt1)s");
+	_, err = c.GetString(DefaultSection, "opt1");
+	if err == nil {
+		t.Errorf("GetString failure: no error for cycle")
+	} else if strings.Index(err.String(), "cycle") < 0 {
+		t.Errorf("GetString failure: incorrect error for cycle")
+	}
 }
 
 
-// ReadConfigFile reads a file and returns a new configuration representation.
-// This representation can be queried with GetString, etc.
-func ReadConfigFile(fname string) (c *ConfigFile, err os.Error) {
-	var file *os.File;
-	if file, err = os.Open(fname, os.O_RDONLY, 0); err != nil {
-		return nil, err
-	}
-	c = NewConfigFile();
-	if err = c.read(bufio.NewReader(file)); err != nil {
-		return nil, err
-	}
-	if err = file.Close(); err != nil {
-		return nil, err
-	}
-	return c, nil;
-}
-
-
-func (c *ConfigFile) write(buf *bufio.Writer, header string) (err os.Error) {
-	if header != "" {
-		if err = buf.WriteString("# " + header + "\n"); err != nil {
-			return err
-		}
+// Create a 'tough' configuration file and test (read) parsing.
+func TestReadFile(t *testing.T) {
+	const tmp = "/tmp/__config_test.go__garbage";
+	defer os.Remove(tmp);
+	
+	file, err := os.Open(tmp, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0644);
+	if err != nil {
+		t.Fatalf("Test cannot run because cannot write temporary file: " + tmp)
 	}
 
-	for section, sectionmap := range c.data {
-		if section == DefaultSection && len(sectionmap) == 0 {
-			continue; // skip default section if empty
-		}
-		if err = buf.WriteString("[" + section + "]\n"); err != nil {
-			return err
-		}
-		for option, value := range sectionmap {
-			if err = buf.WriteString(option + "=" + value + "\n"); err != nil {
-				return err
-			}
-		}
-		if err = buf.WriteString("\n"); err != nil {
-			return err
-		}
-	}
-	return nil;
-}
-
-
-// WriteConfigFile saves the configuration representation to a file.
-// The desired file permissions must be passed as in os.Open.
-// The header is a string that is saved as a comment in the first line of the file.
-func (c *ConfigFile) WriteConfigFile(fname string, perm int, header string) (err os.Error) {
-	var file *os.File;
-	if file, err = os.Open(fname, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, perm); err != nil {
-		return err
-	}
 	buf := bufio.NewWriter(file);
-	if err = c.write(buf, header); err != nil {
-		return err
-	}
+	buf.WriteString("[section-1]\n");
+	buf.WriteString("  option1=value1 ; This is a comment\n");
+	buf.WriteString(" option2 : 2#Not a comment\t#Now this is a comment after a TAB\n");
+	buf.WriteString("  # Let me put another comment\n");
+	buf.WriteString("    option3= line1\nline2 \n\tline3 # Comment\n");
+	buf.WriteString("; Another comment\n");
+	buf.WriteString("[" + DefaultSection + "]\n");
+	buf.WriteString("variable1=small\n");
+	buf.WriteString("variable2=a_part_of_a_%(variable1)s_test\n");
+	buf.WriteString("[secTION-2]\n");
+	buf.WriteString("IS-flag-TRUE=Yes\n");
+	buf.WriteString("[section-1]\n");	// continue again [section-1]
+	buf.WriteString("option4=this_is_%(variable2)s.\n");
 	buf.Flush();
-	return file.Close();
-}
+	file.Close();
 
-
-// GetSections returns the list of sections in the configuration.
-// (The default section always exists.)
-func (c *ConfigFile) GetSections() (sections []string) {
-	sections = make([]string, len(c.data));
-	i := 0;
-	for s, _ := range c.data {
-		sections[i] = s;
-		i++;
-	}
-	return sections;
-}
-
-
-// HasSection checks if the configuration has the given section.
-// (The default section always exists.)
-func (c *ConfigFile) HasSection(section string) bool {
-	_, ok := c.data[strings.ToLower(section)];
-	return ok;
-}
-
-
-// GetOptions returns the list of options available in the given section.
-// It returns an error if the section does not exist and an empty list if the section is empty.
-// Options within the default section are also included.
-func (c *ConfigFile) GetOptions(section string) (options []string, err os.Error) {
-	section = strings.ToLower(section);
-	if _, ok := c.data[section]; !ok {
-		return nil, os.NewError("section not found")
-	}
-	options = make([]string, len(c.data[DefaultSection])+len(c.data[section]));
-	i := 0;
-	for s, _ := range c.data[DefaultSection] {
-		options[i] = s;
-		i++;
-	}
-	for s, _ := range c.data[section] {
-		options[i] = s;
-		i++;
-	}
-	return options, nil;
-}
-
-
-// HasOption checks if the configuration has the given option in the section.
-// It returns false if either the option or section do not exist.
-func (c *ConfigFile) HasOption(section string, option string) bool {
-	section = strings.ToLower(section);
-	option = strings.ToLower(option);
-	if _, ok := c.data[section]; !ok {
-		return false
-	}
-	_, okd := c.data[DefaultSection][option];
-	_, oknd := c.data[section][option];
-	return okd || oknd;
-}
-
-
-// GetRawString gets the (raw) string value for the given option in the section.
-// The raw string value is not subjected to unfolding, which was illustrated in the beginning of this documentation.
-// It returns an error if either the section or the option do not exist.
-func (c *ConfigFile) GetRawString(section string, option string) (value string, err os.Error) {
-	section = strings.ToLower(section);
-	option = strings.ToLower(option);
-	if _, ok := c.data[section]; ok {
-		if value, ok = c.data[section][option]; ok {
-			return value, nil
-		}
-		return "", os.NewError("option not found");
-	}
-	return "", os.NewError("section not found");
-}
-
-
-// GetString gets the string value for the given option in the section.
-// If the value needs to be unfolded (see e.g. %(host)s example in the beginning of this documentation),
-// then GetString does this unfolding automatically, up to DepthValues number of iterations.
-// It returns an error if either the section or the option do not exist, or the unfolding cycled.
-func (c *ConfigFile) GetString(section string, option string) (value string, err os.Error) {
-	value, err = c.GetRawString(section, option);
+	c, err := ReadConfigFile(tmp);
 	if err != nil {
-		return "", err
+		t.Fatalf("ReadConfigFile failure: " + err.String())
+	}
+	if len(c.GetSections()) != 3 {	// check number of sections
+		t.Errorf("GetSections failure: wrong number of sections")
+	}
+	opts, err := c.GetOptions("section-1");	// check number of options
+	if len(opts) != 6 {				// 4 of [section-1] plus 2 of [default]
+		t.Errorf("GetOptions failure: wrong number of options")
 	}
 
-	section = strings.ToLower(section);
-
-	var i int;
-	for i = 0; i < DepthValues; i++ {	// keep a sane depth
-		vr := varRegExp.ExecuteString(value);
-		if len(vr) == 0 {
-			break
-		}
-
-		noption := value[vr[2]:vr[3]];
-		noption = strings.ToLower(noption);
-
-		nvalue, _ := c.data[DefaultSection][noption]; // search variable in default section
-		if _, ok := c.data[section][noption]; ok {
-			nvalue = c.data[section][noption]
-		}
-		if nvalue == "" {
-			return "", os.NewError("option not found: " + noption)
-		}
-
-		// substitute by new value and take off leading '%(' and trailing ')s'
-		value = value[0:vr[2]-2] + nvalue + value[vr[3]+2:];
-	}
-	if i == DepthValues {
-		return "", os.NewError("possible cycle while unfolding variables: max depth of " + strconv.Itoa(DepthValues) + " reached")
-	}
-	return value, nil;
+	testGet(t, c, "section-1", "option1", "value1");
+	testGet(t, c, "section-1", "option2", "2#Not a comment");
+	testGet(t, c, "section-1", "option3", "line1\nline2\nline3");
+	testGet(t, c, "section-1", "option4", "this_is_a_part_of_a_small_test.");
+	testGet(t, c, "SECtion-2", "is-FLAG-true", true);	// case-insensitive
 }
 
 
-// GetInt has the same behaviour as GetString but converts the response to int.
-func (c *ConfigFile) GetInt(section string, option string) (value int, err os.Error) {
-	svalue, err := c.GetString(section, option);
-	if err == nil {
-		value, err = strconv.Atoi(svalue)
-	}
-	return value, err;
-}
+// Test writing and reading back a configuration file.
+func TestWriteReadFile(t *testing.T) {
+	const tmp = "/tmp/__config_test.go__garbage";
+	defer os.Remove(tmp);
 
+	cw := NewConfigFile();
 
-// GetFloat has the same behaviour as GetString but converts the response to float.
-func (c *ConfigFile) GetFloat(section string, option string) (value float, err os.Error) {
-	svalue, err := c.GetString(section, option);
-	if err == nil {
-		value, err = strconv.Atof(svalue)
-	}
-	return value, err;
-}
+	// write file; will test only read later on
+	cw.AddSection("First-Section");
+	cw.AddOption("First-Section", "option1", "value option1");
+	cw.AddOption("First-Section", "option2", "2");
 
+	cw.AddOption(DefaultSection, "host", "www.example.com");
+	cw.AddOption(DefaultSection, "protocol", "https://");
+	cw.AddOption(DefaultSection, "base-url", "%(protocol)s%(host)s");
 
-// GetBool has the same behaviour as GetString but converts the response to bool.
-// See constants TrueBool and FalseBool for string values converted to bool.
-func (c *ConfigFile) GetBool(section string, option string) (value bool, err os.Error) {
-	svalue, err := c.GetString(section, option);
+	cw.AddOption("Another-Section", "useHTTPS", "y");
+	cw.AddOption("Another-Section", "url", "%(base-url)s/some/path");
+
+	cw.WriteConfigFile(tmp, 0644, "Test file for test-case");
+
+	// read back file and test
+	cr, err := ReadConfigFile(tmp);
 	if err != nil {
-		return false, err
+		t.Fatalf("ReadConfigFile failure: " + err.String())
 	}
-	for _, c := range TrueBool {
-		if strings.ToLower(svalue) == c {
-			return true, nil
-		}
-	}
-	for _, c := range FalseBool {
-		if strings.ToLower(svalue) == c {
-			return false, nil
-		}
-	}
-	return false, os.NewError("could not parse bool value: " + svalue);
+
+	testGet(t, cr, "first-section", "option1", "value option1");
+	testGet(t, cr, "first-section", "option2", 2);
+	testGet(t, cr, "Another-SECTION", "usehttps", true);
+	testGet(t, cr, "another-section", "url", "https://www.example.com/some/path");
 }
