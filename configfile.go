@@ -30,14 +30,14 @@
 //
 //	c := configfile.NewConfigFile();
 //	c.AddSection("section");
-//	c.AddOption("section", "option", "on");
+//	c.AddOption("section", "option", "value");
 //	c.WriteConfigFile("config.cfg", 0644, "A header for this file"); // use 0644 as file permission
 //
 // This results in the file:
 //
 //	# A header for this file
 //	[section]
-//	option=on
+//	option=value
 //
 // The functionality and workflow is loosely based on the configparser.py package
 // of the Python Standard Library.
