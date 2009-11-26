@@ -1,0 +1,6 @@
+The Makefile and configfile_test.py are to be used only
+if you want to place this package in the standard library.
+
+Otherwise just do:
+6g configfile.py
+... and then link to your own source file as necessary.
