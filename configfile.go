@@ -18,10 +18,10 @@
 // To read this configuration file, do:
 //
 //	c, err := configfile.ReadConfigFile("config.cfg");
-//	c.GetStringValue("service-1", "url"); // result is string :http://www.example.com/some/path"
-//	c.GetIntValue("service-1", "maxclients"); // result is int 200
-//	c.GetBoolValue("service-1", "delegation"); // result is bool true
-//	c.GetStringValue("service-1", "comments"); // result is string "This is a multi-line\nentry"
+//	c.GetString("service-1", "url"); // result is string :http://www.example.com/some/path"
+//	c.GetInt("service-1", "maxclients"); // result is int 200
+//	c.GetBool("service-1", "delegation"); // result is bool true
+//	c.GetString("service-1", "comments"); // result is string "This is a multi-line\nentry"
 //
 // Note the support for unfolding variables (such as %(base-url)s), which are read from the special
 // (reserved) section name [default].
