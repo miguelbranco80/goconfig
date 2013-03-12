@@ -238,7 +238,7 @@ func (c *ConfigFile) read(buf *bufio.Reader) error {
 			c.AddSection(section)
 
 		case section == "": // not new section and no section defined so far
-			return errors.New("section not found: must start with section")
+			return errors.New("Section not found: must start with section")
 
 		default: // other alternatives
 			i := firstIndex(l, []byte{'=', ':'})
@@ -256,7 +256,7 @@ func (c *ConfigFile) read(buf *bufio.Reader) error {
 				c.AddOption(section, option, prev+"\n"+value)
 
 			default:
-				return errors.New("could not parse line: " + l)
+				return errors.New(fmt.Sprintf("Could not parse line: %s", l))
 			}
 		}
 	}
@@ -374,7 +374,9 @@ func (c *ConfigFile) GetOptions(section string) ([]string, error) {
 	section = strings.ToLower(section)
 
 	if _, ok := c.data[section]; !ok {
-		return nil, errors.New("section not found")
+		return nil, errors.New(
+			fmt.Sprintf("Section not found: %s", section),
+		)
 	}
 
 	options := make([]string, len(c.data[DefaultSection])+len(c.data[section]))
@@ -426,10 +428,10 @@ func (c *ConfigFile) GetRawString(section string, option string) (string, error)
 			return value, nil
 		}
 
-		return "", errors.New("option not found")
+		return "", errors.New(fmt.Sprintf("Option not found: %s", option))
 	}
 
-	return "", errors.New("section not found")
+	return "", errors.New(fmt.Sprintf("Section not found: %s", section))
 }
 
 // GetString gets the string value for the given option in the section.
@@ -467,7 +469,7 @@ func (c *ConfigFile) GetString(section string, option string) (string, error) {
 		}
 
 		if nvalue == "" {
-			return "", errors.New("option not found: " + noption)
+			return "", errors.New(fmt.Sprintf("Option not found: %s", noption))
 		}
 
 		// substitute by new value and take off leading '%(' and trailing ')s'
@@ -475,7 +477,13 @@ func (c *ConfigFile) GetString(section string, option string) (string, error) {
 	}
 
 	if i == DepthValues {
-		return "", errors.New("possible cycle while unfolding variables: max depth of " + strconv.Itoa(DepthValues) + " reached")
+		return "",
+			errors.New(
+				fmt.Sprintf(
+					"Possible cycle while unfolding variables: max depth of %d reached",
+					strconv.Itoa(DepthValues),
+				),
+			)
 	}
 
 	return value, nil
@@ -526,7 +534,9 @@ func (c *ConfigFile) GetBool(section string, option string) (bool, error) {
 
 	value, ok := BoolStrings[strings.ToLower(sv)]
 	if ok == false {
-		return false, errors.New("could not parse bool value: " + sv)
+		return false, errors.New(
+			fmt.Sprintf("Could not parse bool value: %s", sv),
+		)
 	}
 
 	return value, nil
