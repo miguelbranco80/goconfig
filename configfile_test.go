@@ -1,4 +1,4 @@
-package configfile_test
+package goconfig_test
 
 import (
 	. "../goconfig"

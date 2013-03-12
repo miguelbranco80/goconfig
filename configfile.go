@@ -50,7 +50,7 @@
 //
 // The functionality and workflow is loosely based on the configparser.py
 // package of the Python Standard Library.
-package configfile
+package goconfig
 
 import (
 	"bufio"
