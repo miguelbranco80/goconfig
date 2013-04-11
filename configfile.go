@@ -91,7 +91,8 @@ var (
 		"yes":   true,
 	}
 
-	varRegExp = regexp.MustCompile(`%\(([a-zA-Z0-9_.\-]+)\)s`)
+	varRegExp    = regexp.MustCompile(`%\(([a-zA-Z0-9_.\-]+)\)s`)
+	envVarRegExp = regexp.MustCompile(`\$\(([a-zA-Z0-9_.\-]+)\)s`)
 )
 
 // AddSection adds a new section to the configuration.
@@ -434,6 +435,43 @@ func (c *ConfigFile) GetRawString(section string, option string) (string, error)
 	return "", errors.New(fmt.Sprintf("Section not found: %s", section))
 }
 
+// Substitutes values, calculated by callback, on matching regex
+func (c *ConfigFile) computeVar(beforeValue *string, regx *regexp.Regexp, withVar func(*string)string) (*string, error) {
+	var i int
+  computedVal := beforeValue
+	for i = 0; i < DepthValues; i++ { // keep a sane depth
+
+		vr := regx.FindStringSubmatchIndex(*computedVal)
+		if len(vr) == 0 {
+			break
+		}
+
+		varname := (*computedVal)[vr[2]:vr[3]]
+    varVal := withVar(&varname)
+		if varVal == "" {
+			return &varVal, errors.New(fmt.Sprintf("Option not found: %s", varname))
+		}
+
+		// substitute by new value and take off leading '%(' and trailing ')s'
+		newVal := (*computedVal)[0:vr[2]-2] + varVal + (*computedVal)[vr[3]+2:]
+    computedVal = &newVal
+	}
+
+	if i == DepthValues {
+    retVal := ""
+		return &retVal,
+			errors.New(
+				fmt.Sprintf(
+					"Possible cycle while unfolding variables: max depth of %d reached",
+					strconv.Itoa(DepthValues),
+				),
+			)
+	}
+  
+  return computedVal, nil
+}
+
+
 // GetString gets the string value for the given option in the section.
 // If the value needs to be unfolded (see e.g. %(host)s example in the
 // beginning of this documentation),
@@ -442,51 +480,35 @@ func (c *ConfigFile) GetRawString(section string, option string) (string, error)
 // It returns an error if either the section or the option do not exist, or
 // the unfolding cycled.
 func (c *ConfigFile) GetString(section string, option string) (string, error) {
-
 	value, err := c.GetRawString(section, option)
 	if err != nil {
 		return "", err
 	}
 
 	section = strings.ToLower(section)
-
-	var i int
-
-	for i = 0; i < DepthValues; i++ { // keep a sane depth
-
-		vr := varRegExp.FindStringSubmatchIndex(value)
-		if len(vr) == 0 {
-			break
+  
+  // % variables
+  computedVal, err := c.computeVar(&value, varRegExp, func(varName *string) string {
+		lowerVar := strings.ToLower(*varName)
+		// search variable in default section as well as current section
+		varVal, _ := c.data[DefaultSection][lowerVar]
+		if _, ok := c.data[section][lowerVar]; ok {
+			varVal = c.data[section][lowerVar]
 		}
-
-		noption := value[vr[2]:vr[3]]
-		noption = strings.ToLower(noption)
-
-		// search variable in default section
-		nvalue, _ := c.data[DefaultSection][noption]
-		if _, ok := c.data[section][noption]; ok {
-			nvalue = c.data[section][noption]
-		}
-
-		if nvalue == "" {
-			return "", errors.New(fmt.Sprintf("Option not found: %s", noption))
-		}
-
-		// substitute by new value and take off leading '%(' and trailing ')s'
-		value = value[0:vr[2]-2] + nvalue + value[vr[3]+2:]
+    return varVal
+  })
+  value = *computedVal
+  
+	if err != nil {
+		return value, err
 	}
-
-	if i == DepthValues {
-		return "",
-			errors.New(
-				fmt.Sprintf(
-					"Possible cycle while unfolding variables: max depth of %d reached",
-					strconv.Itoa(DepthValues),
-				),
-			)
-	}
-
-	return value, nil
+  
+  // $ environment variables
+  computedVal, err = c.computeVar(&value, envVarRegExp, func(varName *string) string {
+    return os.Getenv(*varName)
+  })
+  value = *computedVal
+	return value, err
 }
 
 // GetInt has the same behaviour as GetString but converts the response to int.

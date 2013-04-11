@@ -10,6 +10,7 @@ Given a sample configuration file:
 
   [service-1]
   url=%(base-url)s/some/path
+  mysecret=$(SECRET_ENV)s
   delegation : on
   maxclients=200 # do not set this higher
   comments=This is a multi-line
@@ -20,6 +21,7 @@ To read this configuration file, do:
   c, err := configfile.ReadConfigFile("config.cfg");
   // result is string :http://www.example.com/some/path"
   c.GetString("service-1", "url");
+  c.GetString("service-1", "mysecret"); // result is os.Getenv("SECRET_ENV")
   c.GetInt64("service-1", "maxclients"); // result is int 200
   c.GetBool("service-1", "delegation"); // result is bool true
 
@@ -28,6 +30,9 @@ To read this configuration file, do:
 
 Note the support for unfolding variables (such as %(base-url)s), which are
 read from the special (reserved) section name [default].
+
+Also note the support for environment variables (such as $(MY_ENV_VAR)s), which
+are read from the system environment variables.
 
 A new configuration file can also be created with:
   c := configfile.NewConfigFile();
