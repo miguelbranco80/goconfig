@@ -31,7 +31,8 @@ func testGet(t *testing.T, c *ConfigFile, section string, option string, expecte
 	}
 
 	if !ok {
-		t.Errorf("Get failure: expected different value for %s %s", section, option)
+    printable, _ := c.GetString(section, option)
+		t.Errorf("Get failure: expected different value for %s %s (expected: %#v) (got: %#v)", section, option, expected, printable)
 	}
 }
 
@@ -164,6 +165,12 @@ func TestReadFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Test cannot run because cannot write temporary file: " + tmp)
 	}
+  
+  err = os.Setenv("GO_CONFIGFILE_TEST_ENV_VAR", "configvalue12345")
+	if err != nil {
+		t.Fatalf("Test cannot run because cannot set environment variable GO_CONFIGFILE_TEST_ENV_VAR: %#v", err)
+	}
+   
 
 	buf := bufio.NewWriter(file)
 	buf.WriteString("[section-1]\n")
@@ -179,6 +186,7 @@ func TestReadFile(t *testing.T) {
 	buf.WriteString("IS-flag-TRUE=Yes\n")
 	buf.WriteString("[section-1]\n") // continue again [section-1]
 	buf.WriteString("option4=this_is_%(variable2)s.\n")
+	buf.WriteString("envoption1=this_uses_$(GO_CONFIGFILE_TEST_ENV_VAR)s_env\n")
 	buf.Flush()
 	file.Close()
 
@@ -192,7 +200,7 @@ func TestReadFile(t *testing.T) {
 	}
 
 	opts, err := c.GetOptions("section-1") // check number of options
-	if len(opts) != 6 {                    // 4 of [section-1] plus 2 of [default]
+	if len(opts) != 7 {                    // 4 of [section-1] plus 2 of [default]
 		t.Errorf("GetOptions failure: wrong number of options")
 	}
 
@@ -200,6 +208,7 @@ func TestReadFile(t *testing.T) {
 	testGet(t, c, "section-1", "option2", "2#Not a comment")
 	testGet(t, c, "section-1", "option3", "line1\nline2\nline3")
 	testGet(t, c, "section-1", "option4", "this_is_a_part_of_a_small_test.")
+	testGet(t, c, "section-1", "envoption1", "this_uses_configvalue12345_env")
 	testGet(t, c, "SECtion-2", "is-FLAG-true", true) // case-insensitive
 }
 
