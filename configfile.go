@@ -211,7 +211,9 @@ func (c *ConfigFile) read(buf *bufio.Reader) error {
 	for {
 		l, err := buf.ReadString('\n') // parse line-by-line
 		if err == io.EOF {
-			break
+			if len(l) == 0 {
+				break
+			}
 		} else if err != nil {
 			return err
 		}
