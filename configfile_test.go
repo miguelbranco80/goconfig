@@ -157,7 +157,8 @@ func TestInMemory(t *testing.T) {
 
 // Create a 'tough' configuration file and test (read) parsing.
 func TestReadFile(t *testing.T) {
-	const tmp = "/tmp/__config_test.go__garbage"
+
+	tmp := os.TempDir() + "/__config_test.go__garbage"
 	defer os.Remove(tmp)
 
 	file, err := os.Create(tmp)
@@ -205,7 +206,7 @@ func TestReadFile(t *testing.T) {
 
 // Test writing and reading back a configuration file.
 func TestWriteReadFile(t *testing.T) {
-	const tmp = "/tmp/__config_test.go__garbage"
+	tmp := os.TempDir() + "/__config_test.go__garbage"
 	defer os.Remove(tmp)
 
 	cw := NewConfigFile()
