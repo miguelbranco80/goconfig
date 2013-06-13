@@ -179,7 +179,7 @@ func TestReadFile(t *testing.T) {
 	buf.WriteString("[secTION-2]\n")
 	buf.WriteString("IS-flag-TRUE=Yes\n")
 	buf.WriteString("[section-1]\n") // continue again [section-1]
-	buf.WriteString("option4=this_is_%(variable2)s.\n")
+	buf.WriteString("option4=this_is_%(variable2)s.")
 	buf.Flush()
 	file.Close()
 
