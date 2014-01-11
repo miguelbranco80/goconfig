@@ -266,6 +266,20 @@ func (c *ConfigFile) read(buf *bufio.Reader) error {
 	return nil
 }
 
+// ReadConfig reads a reader object and returns a new configuration representation.
+// This representation can be queried with GetString, etc.
+// This is useful when you want to read the config from a network 
+// request etc and not a local file
+func ReadConfig(reader io.Reader) (*ConfigFile, error) {
+
+	c := NewConfigFile()
+	if err := c.read(bufio.NewReader(reader)); err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
 // ReadConfigFile reads a file and returns a new configuration representation.
 // This representation can be queried with GetString, etc.
 func ReadConfigFile(fname string) (*ConfigFile, error) {
