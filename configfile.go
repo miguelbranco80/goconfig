@@ -63,6 +63,23 @@ import (
 	"strings"
 )
 
+type ConfigFiler interface {
+	func AddSection ( string ) bool
+	func RemoveSection ( string ) bool
+	func AppOption ( string, string, string ) bool 
+	func RemoveOption ( string, string ) bool
+	func WriteConfigFile ( string, uint32, string ) error
+	func GetSections () []string
+	func HasSection ( string ) bool 
+	func GetOptions ( string ) ( []string, error )
+	func HasOption ( string, string ) ( []string, error )
+	func GetRawString ( string, string ) ( string, error )
+	func GetString ( string, string ) ( string, error )
+	func GetInt64 ( string, string ) ( int64, error )
+	func GetFloat ( string, string ) ( float64, error )
+	func GetBool ( string, string ) ( bool, error )
+}
+
 // ConfigFile is the representation of configuration settings.
 // The public interface is entirely through methods.
 type ConfigFile struct {
