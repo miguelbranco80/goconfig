@@ -64,20 +64,20 @@ import (
 )
 
 type ConfigFiler interface {
-	func AddSection ( string ) bool
-	func RemoveSection ( string ) bool
-	func AppOption ( string, string, string ) bool 
-	func RemoveOption ( string, string ) bool
-	func WriteConfigFile ( string, uint32, string ) error
-	func GetSections () []string
-	func HasSection ( string ) bool 
-	func GetOptions ( string ) ( []string, error )
-	func HasOption ( string, string ) ( []string, error )
-	func GetRawString ( string, string ) ( string, error )
-	func GetString ( string, string ) ( string, error )
-	func GetInt64 ( string, string ) ( int64, error )
-	func GetFloat ( string, string ) ( float64, error )
-	func GetBool ( string, string ) ( bool, error )
+	AddSection ( string ) bool
+	RemoveSection ( string ) bool
+	AddOption ( string, string, string ) bool 
+	RemoveOption ( string, string ) bool
+	WriteConfigFile ( string, uint32, string ) error
+	GetSections () []string
+	HasSection ( string ) bool 
+	GetOptions ( string ) ( []string, error )
+	HasOption ( string, string ) bool
+	GetRawString ( string, string ) ( string, error )
+	GetString ( string, string ) ( string, error )
+	GetInt64 ( string, string ) ( int64, error )
+	GetFloat ( string, string ) ( float64, error )
+	GetBool ( string, string ) ( bool, error )
 }
 
 // ConfigFile is the representation of configuration settings.
@@ -187,8 +187,8 @@ func (c *ConfigFile) RemoveOption(section string, option string) bool {
 // This representation can be filled with AddSection and AddOption and then
 // saved to a file using WriteConfigFile.
 func NewConfigFile() *ConfigFile {
-
-	c := new(ConfigFile)
+	var c *ConfigFile
+	c = new(ConfigFile)
 	c.data = make(map[string]map[string]string)
 
 	c.AddSection(DefaultSection) // default section always exists

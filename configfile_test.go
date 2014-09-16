@@ -236,3 +236,15 @@ func TestWriteReadFile(t *testing.T) {
 	testGet(t, cr, "Another-SECTION", "usehttps", true)
 	testGet(t, cr, "another-section", "url", "https://www.example.com/some/path")
 }
+
+func TestWithInterface(t *testing.T) {
+	var c ConfigFiler
+	c = NewConfigFile()
+	
+	switch c.(type) {
+	case ConfigFiler:
+		break;
+	default:
+		t.Error( "ConfigFile is not implementing interface ConfigFiler" )
+	}
+}
