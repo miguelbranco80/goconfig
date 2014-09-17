@@ -187,8 +187,7 @@ func (c *ConfigFile) RemoveOption(section string, option string) bool {
 // This representation can be filled with AddSection and AddOption and then
 // saved to a file using WriteConfigFile.
 func NewConfigFile() *ConfigFile {
-	var c *ConfigFile
-	c = new(ConfigFile)
+	c := new(ConfigFile)
 	c.data = make(map[string]map[string]string)
 
 	c.AddSection(DefaultSection) // default section always exists
