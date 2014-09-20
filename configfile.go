@@ -183,6 +183,10 @@ func (c *ConfigFile) RemoveOption(section string, option string) bool {
 	return ok
 }
 
+func NewConfigFiler() ConfigFiler {
+	return NewConfigFile()
+}
+
 // NewConfigFile creates an empty configuration representation.
 // This representation can be filled with AddSection and AddOption and then
 // saved to a file using WriteConfigFile.
@@ -280,6 +284,10 @@ func (c *ConfigFile) read(buf *bufio.Reader) error {
 	}
 
 	return nil
+}
+
+func ReadConfigFiler(fname string) (ConfigFiler, error) {
+	return ReadConfigFile(fname)
 }
 
 // ReadConfigFile reads a file and returns a new configuration representation.
