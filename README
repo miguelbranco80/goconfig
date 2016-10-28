@@ -17,7 +17,7 @@ Given a sample configuration file:
 
 To read this configuration file, do:
 
-  c, err := configfile.ReadConfigFile("config.cfg");
+  c, err := goconfig.ReadConfigFile("config.cfg");
   // result is string :http://www.example.com/some/path"
   c.GetString("service-1", "url");
   c.GetInt64("service-1", "maxclients"); // result is int 200
@@ -30,7 +30,7 @@ Note the support for unfolding variables (such as %(base-url)s), which are
 read from the special (reserved) section name [default].
 
 A new configuration file can also be created with:
-  c := configfile.NewConfigFile();
+  c := goconfig.NewConfigFile();
   c.AddSection("section");
   c.AddOption("section", "option", "value");
   // use 0644 as file permission
